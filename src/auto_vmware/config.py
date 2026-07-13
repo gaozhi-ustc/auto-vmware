@@ -12,7 +12,7 @@ from typing import List
 # ---- 默认路径常量（可被环境变量覆盖）---------------------------------------
 DEFAULT_ISO_PATH = os.environ.get(
     "AUTO_VMWARE_ISO_PATH",
-    "/DATA/downloads/ubuntu-22.04.5-desktop-amd64.iso",
+    "/DATA/downloads/ubuntu-22.04.5-live-server-amd64.iso",
 )
 DEFAULT_VM_BASE_DIR = os.environ.get("AUTO_VMWARE_VM_BASE_DIR", "/DATA/vmware")
 DEFAULT_FLCLASH_DEB = os.environ.get(
