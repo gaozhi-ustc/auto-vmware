@@ -150,7 +150,10 @@ autoinstall:
   network:
     version: 2
     ethernets:
-      ens33:
+      # 不写死网卡名：用 match 匹配第一张物理网卡，避免 ens33/enp0s3 命名差异
+      net0:
+        match:
+          name: "e*"
         dhcp4: false
         addresses:
           - {s.ip_address}/24

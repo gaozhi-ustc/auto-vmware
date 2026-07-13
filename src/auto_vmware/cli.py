@@ -46,9 +46,7 @@ def _add_common(p: argparse.ArgumentParser) -> None:
         required=True,
         help="IP 尾段（192.168.167.<n>），推荐 3-127",
     )
-    p.add_argument("--cpu", type=int, default=4, help="CPU 核数，默认 4")
-    p.add_argument("--mem-mb", type=int, default=8192, help="内存 MB，默认 8192")
-    p.add_argument("--disk-gb", type=int, default=60, help="磁盘 GB，默认 60")
+    # 硬件为固定参数（AGENTS.md §5）：8 vCPU / 8192MB / 100G 单文件，不接受覆盖
     p.add_argument("--iso", default=DEFAULT_ISO_PATH, help="Ubuntu ISO 路径")
     p.add_argument("--vm-base", default=DEFAULT_VM_BASE_DIR, help="虚拟机父目录")
     p.add_argument("--flclash-deb", default=DEFAULT_FLCLASH_DEB, help="FlClash deb 路径")
@@ -72,9 +70,6 @@ def build_spec(args: argparse.Namespace) -> VmSpec:
         flclash_deb=args.flclash_deb,
         chrome_deb=args.chrome_deb,
         clash_config=args.clash_config,
-        cpu=args.cpu,
-        mem_mb=args.mem_mb,
-        disk_gb=args.disk_gb,
         yes=args.yes,
         verbose=args.verbose,
     )

@@ -38,10 +38,16 @@ IP_LAST_MAX_SAFE = 127
 # 绝对禁止值
 IP_LAST_FORBIDDEN = {0, 1, 2, 255}
 
-# ---- VM 硬件默认 -------------------------------------------------------------
-DEFAULT_CPU = 4
+# ---- VM 硬件固定参数（AGENTS.md §5；脚本内固定，不接受运行时覆盖）----------
+# CPU：4 sockets × 2 cores/socket = 8 vCPU
+FIXED_SOCKETS = 4
+FIXED_CORES_PER_SOCKET = 2
+FIXED_TOTAL_VCPU = FIXED_SOCKETS * FIXED_CORES_PER_SOCKET  # 8
+DEFAULT_CPU = FIXED_TOTAL_VCPU
 DEFAULT_MEM_MB = 8192
-DEFAULT_DISK_GB = 60
+DEFAULT_DISK_GB = 100
+# 磁盘：单一可增长虚拟磁盘（monolithic），对应 vdiskmanager -t 0
+FIXED_DISK_TYPE = 0
 
 # ---- 装机后 apt 包列表（AGENTS.md 步骤3）-----------------------------------
 POSTINSTALL_APT_PKGS: List[str] = [

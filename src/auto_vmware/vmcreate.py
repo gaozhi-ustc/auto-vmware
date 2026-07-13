@@ -10,6 +10,7 @@ import os
 import subprocess
 from typing import TYPE_CHECKING
 
+from auto_vmware.config import FIXED_CORES_PER_SOCKET, FIXED_DISK_TYPE, FIXED_SOCKETS
 from auto_vmware.log import get_logger
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ def create_vmdk(spec: "VmSpec") -> str:
         "-c",
         "-s", f"{size_mb}MB",
         "-a", "lsilogic",
-        "-t", "0",  # 单一可增长虚拟磁盘
+        "-t", str(FIXED_DISK_TYPE),  # 0 = 单一可增长虚拟磁盘（monolithic）
         out,
     ]
     _log.info("创建磁盘: %s (%sGB)", out, spec.disk_gb)
@@ -55,90 +56,88 @@ def create_vmdk(spec: "VmSpec") -> str:
 def render_vmx(spec: "VmSpec") -> str:
     """渲染 .vmx 配置文件文本。
 
-    配置要点：
-    - guestOS = ubuntu-64
-    - ethernet0.connectionType = nat（VMnet8）
-    - 双 CD-ROM：CD0 挂 ISO，CD1 挂 cidata 种子
-    - SCSI/LSI 控制器 + 主磁盘
-    - 内存/CPU 按 spec
+    结构对齐本机已验证可用的 ubuntu-zero03.vmx，确保 VMware Workstation 能
+    正确解析。关键点：
+    - 首行必须是 shebang ``#!/usr/bin/vmware``（VMware 把 vmx 当脚本读）。
+    - 硬件版本键名是 ``virtualHW.version``（点分），不是驼峰 ``virtualHWVersion``。
+    - 需要 pciBridge0/4-7 基础设施项。
+    - 主磁盘走 SCSI(lsilogic)；两个光驱走 SATA 控制器（sata0:1 ISO、sata0:2 cidata）。
+    - 网络为 NAT，虚拟设备 e1000。
+    - uuid / pciSlotNumber 等由 VMware 首次启动时自动生成，无需手写。
 
     Args:
         spec: 虚拟机规格。
 
     Returns:
-        .vmx 文件全文（ASCII）。
+        .vmx 文件全文（纯 ASCII）。
     """
     s = spec
-    # 注意：.vmx 的值用双引号；路径不转义反斜杠
-    return f""".encoding = "UTF-8"
+    vmdk_name = os.path.basename(s.vmdk_path)
+    cidata_name = os.path.basename(s.cidata_iso_path)
+    iso_path = s.iso_path
+    # NOTE: 所有注释保持 ASCII；首行 shebang 不可省略。
+    return f"""#!/usr/bin/vmware
+.encoding = "UTF-8"
 config.version = "8"
-virtualHWVersion = "19"
-guestOS = "ubuntu-64"
-displayName = "{s.name}"
-tools.syncTime = "TRUE"
-
-# --- 电源/兼容 ---
+virtualHW.version = "21"
+mks.enable3d = "TRUE"
+pciBridge0.present = "TRUE"
+pciBridge4.present = "TRUE"
+pciBridge4.virtualDev = "pcieRootPort"
+pciBridge4.functions = "8"
+pciBridge5.present = "TRUE"
+pciBridge5.virtualDev = "pcieRootPort"
+pciBridge5.functions = "8"
+pciBridge6.present = "TRUE"
+pciBridge6.virtualDev = "pcieRootPort"
+pciBridge6.functions = "8"
+pciBridge7.present = "TRUE"
+pciBridge7.virtualDev = "pcieRootPort"
+pciBridge7.functions = "8"
+vmci0.present = "TRUE"
+hpet0.present = "TRUE"
+nvram = "{s.name}.nvram"
+virtualHW.productCompatibility = "hosted"
 powerType.powerOff = "soft"
 powerType.powerOn = "soft"
 powerType.suspend = "soft"
 powerType.reset = "soft"
-virtualHW.productCompatibility = "hosted"
-
-# --- CPU/内存 ---
-numvcpus = "{s.cpu}"
-cpuid.coresPerSocket = "{s.cpu}"
+displayName = "{s.name}"
+guestOS = "ubuntu-64"
+tools.syncTime = "TRUE"
+# --- CPU / memory (fixed: 4 sockets x 2 cores = 8 vCPU) ---
+numvcpus = "{FIXED_SOCKETS}"
+cpuid.coresPerSocket = "{FIXED_CORES_PER_SOCKET}"
 memsize = "{s.mem_mb}"
-
-# --- 主磁盘（SCSI）---
-scsi0.present = "TRUE"
+# --- primary disk (SCSI lsilogic, monolithic) ---
 scsi0.virtualDev = "lsilogic"
+scsi0.present = "TRUE"
+scsi0:0.fileName = "{vmdk_name}"
 scsi0:0.present = "TRUE"
-scsi0:0.deviceType = "scsi-hardDisk"
-scsi0:0.fileName = "{os.path.basename(s.vmdk_path)}"
-scsi0:0.mode = "persistent"
-
-# --- CD-ROM0: Ubuntu ISO ---
-ide1:0.present = "TRUE"
-ide1:0.deviceType = "cdrom-image"
-ide1:0.fileName = "{s.iso_path}"
-ide1:0.startConnected = "TRUE"
-
-# --- CD-ROM1: cidata 种子 ISO（NoCloud）---
-ide1:1.present = "TRUE"
-ide1:1.deviceType = "cdrom-image"
-ide1:1.fileName = "{os.path.basename(s.cidata_iso_path)}"
-ide1:1.startConnected = "TRUE"
-
-# --- 网络（NAT / VMnet8）---
-ethernet0.present = "TRUE"
+# --- SATA controller + two CD-ROMs (ISO + cidata seed) ---
+sata0.present = "TRUE"
+sata0:1.deviceType = "cdrom-image"
+sata0:1.fileName = "{iso_path}"
+sata0:1.present = "TRUE"
+sata0:2.deviceType = "cdrom-image"
+sata0:2.fileName = "{cidata_name}"
+sata0:2.present = "TRUE"
+# --- network (NAT / VMnet8) ---
 ethernet0.connectionType = "nat"
-ethernet0.virtualDev = "e1000"
 ethernet0.addressType = "generated"
-ethernet0.generatedAddressOffset = "0"
-
-# --- USB（便于桌面环境）---
+ethernet0.virtualDev = "e1000"
+ethernet0.present = "TRUE"
+# --- USB ---
 usb.present = "TRUE"
-ehci.present = "TRUE"
-
-# --- 声卡 ---
+# --- sound off ---
 sound.present = "FALSE"
-
-# --- 引导 ---
-bios.bootRetry.delay = "10000"
-bios.hardDiskBootPriority = "1"
-
-# --- 固件：BIOS（避免 UEFI 与 autoinstall storage 配置的兼容性问题）---
-firmware = "bios"
-
-# --- VMware Tools ---
-toolScripts.afterPowerOn = "TRUE"
-
-# --- 扩展 ---
-msg.autoAnswer = "TRUE"
-answer.msg.commandLineTooLong = "TRUE"
+floppy0.present = "FALSE"
+# --- extended ---
 extendedConfigFile = "{s.name}.vmxf"
+vmxstats.filename = "{s.name}.scoreboard"
+# auto-answer dialog questions during headless start
+msg.autoAnswer = "TRUE"
 """
-# 末尾不要空行错位
 
 
 def write_vmx(spec: "VmSpec", vmx_text: str) -> str:
