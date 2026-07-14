@@ -254,6 +254,7 @@ def validate_host_env(spec: VmSpec) -> None:
         "FlClash deb": spec.flclash_deb,
         "Chrome deb": spec.chrome_deb,
         "Clash config": spec.clash_config,
+        "Node tarball": spec.node_tarball,
     }
     missing = []
     for name, path in checks.items():

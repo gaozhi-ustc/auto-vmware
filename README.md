@@ -36,6 +36,7 @@
 | FlClash deb | `/DATA/downloads/FlClash-0.8.93-linux-amd64.deb` | `AUTO_VMWARE_FLCLASH_DEB` |
 | Chrome deb | `/DATA/downloads/google-chrome-stable_current_amd64.deb` | `AUTO_VMWARE_CHROME_DEB` |
 | Clash 配置 | `/DATA/downloads/gaozhi_lagos.yaml` | `AUTO_VMWARE_CLASH_CONFIG` |
+| Node.js 包 | `/DATA/downloads/node-v24.18.0-linux-x64.tar.xz` | `AUTO_VMWARE_NODE_TARBALL` |
 | VM 父目录 | `/DATA/vmware` | `AUTO_VMWARE_VM_BASE_DIR` |
 
 ---

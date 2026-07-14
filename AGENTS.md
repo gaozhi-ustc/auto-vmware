@@ -12,6 +12,7 @@ auto-vmware 是一个面向 **VMware Workstation（本地宿主机）** 的 Ubun
 - 一键从 ISO 创建虚拟机：指定名称/用户名/密码/时区/IP，自动完成无人值守安装。
 - 安装完成后自动配置：桌面环境（gnome/ubuntu-desktop）、VNC（tiger-vnc + lightdm）、SSH。
 - 自动安装 FlClash、Google Chrome（带 `--fix-broken` 依赖修复重试）。
+- 自动安装最新版 Node.js（系统级，所有用户可用）。
 - 自动启动 FlClash 并导入指定配置。
 
 不做的事（明确边界）：
@@ -84,6 +85,7 @@ VM_BASE_DIR    = /DATA/vmware
 FLCLASH_DEB    = /DATA/downloads/FlClash-0.8.93-linux-amd64.deb
 CHROME_DEB     = /DATA/downloads/google-chrome-stable_current_amd64.deb
 CLASH_CONFIG   = /DATA/downloads/gaozhi_lagos.yaml
+NODE_TARBALL   = /DATA/downloads/node-v24.18.0-linux-x64.tar.xz
 NAT_GATEWAY    = 192.168.167.2
 NAT_NETMASK    = 255.255.255.0
 NAT_DNS        = 223.5.5.5 223.6.6.6
@@ -122,8 +124,9 @@ NAT_DNS        = 223.5.5.5 223.6.6.6
 5. 二次启动 VM，等待 SSH 可达（静态 IP）。
 6. 通过 SSH 执行装机后配置（apt 桌面/VNC/lightdm → 重启 → 启动 vncserver）。
 7. 通过 SSH/SCP 安装 FlClash、Chrome（缺失依赖用 `apt install --fix-broken` 后重试）。
-8. 在 `DISPLAY=:1` 启动 FlClash 并导入配置。
-9. 输出最终状态（VM 名称、IP、VNC 端口、SSH 命令）。
+8. 通过 SSH/SCP 上传 Node.js 预编译包，以 root 解压到 `/usr/local`，软链接到 `/usr/local/bin`（所有用户可用）。
+9. 在 `DISPLAY=:1` 启动 FlClash 并导入配置。
+10. 输出最终状态（VM 名称、IP、VNC 端口、SSH 命令）。
 
 每一步必须有超时与明确失败提示，不得无限等待。
 

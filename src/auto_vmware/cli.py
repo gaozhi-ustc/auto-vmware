@@ -22,6 +22,7 @@ from auto_vmware.config import (
     DEFAULT_CLASH_CONFIG,
     DEFAULT_FLCLASH_DEB,
     DEFAULT_ISO_PATH,
+    DEFAULT_NODE_TARBALL,
     DEFAULT_VM_BASE_DIR,
     VmSpec,
 )
@@ -51,6 +52,11 @@ def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--flclash-deb", default=DEFAULT_FLCLASH_DEB, help="FlClash deb 路径")
     p.add_argument("--chrome-deb", default=DEFAULT_CHROME_DEB, help="Chrome deb 路径")
     p.add_argument("--clash-config", default=DEFAULT_CLASH_CONFIG, help="Clash 配置 yaml")
+    p.add_argument(
+        "--node-tarball",
+        default=DEFAULT_NODE_TARBALL,
+        help="Node.js 预编译包 tar.xz 路径（官方 linux-x64）",
+    )
     p.add_argument("--yes", action="store_true", help="跳过确认提示")
     p.add_argument("--gui", action="store_true", help="以 GUI 模式启动 VM（默认后台）")
     p.add_argument("--verbose", action="store_true", help="DEBUG 日志")
@@ -69,6 +75,7 @@ def build_spec(args: argparse.Namespace) -> VmSpec:
         flclash_deb=args.flclash_deb,
         chrome_deb=args.chrome_deb,
         clash_config=args.clash_config,
+        node_tarball=args.node_tarball,
         yes=args.yes,
         verbose=args.verbose,
     )

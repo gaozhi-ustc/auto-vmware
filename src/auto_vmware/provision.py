@@ -1,8 +1,9 @@
-"""装机后配置（步骤 3/4/5）。
+"""装机后配置（步骤 3/4/4b/5）。
 
 在 VM 首启 SSH 可达后，通过 SSH/SCP 完成：
 - 步骤3：apt 安装桌面/VNC/lightdm 等包 → 切 lightdm → 重启 → 启动 vncserver :1
 - 步骤4：安装 FlClash、Chrome deb（缺失依赖用 apt --fix-broken 后重试）
+- 步骤4b：以 root 安装最新 LTS 版 Node.js（系统级，所有用户可用）
 - 步骤5：DISPLAY=:1 启动 FlClash 并导入配置
 
 每个步骤都设计为可单独调用，便于排错与重入。
@@ -10,6 +11,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from auto_vmware import orchestrate, sshutil
@@ -264,6 +266,67 @@ def step4_install_flclash_chrome(spec: VmSpec) -> None:
     _log.info("FlClash / Chrome 安装完成")
 
 
+def step4b_install_node(spec: VmSpec) -> None:
+    """步骤4b：以 root 身份安装最新版 Node.js，供所有用户使用。
+
+    VM 内网络常受限（FlClash 代理对 HTTPS 不稳定），因此不依赖 VM 在线安装，
+    而是从宿主机上传 Node.js 官方预编译包（tar.xz），以 root 解压到 /usr/local，
+    建立软链接到 /usr/local/bin，使所有用户共享 node/npm/npx。
+
+    安装布局：
+    - 解压到 /usr/local/lib/nodejs/node-<version> （版本化目录，便于多版本共存/升级）
+    - 软链接 /usr/local/bin/node → 上述目录/bin/node（npm、npx 同理）
+    - /usr/local/bin 在所有用户的默认 PATH 中，全局可用
+
+    Args:
+        spec: 虚拟机规格。spec.node_tarball 指向宿主机上的 tar.xz 路径。
+
+    Raises:
+        RuntimeError: 安装或验证失败。
+    """
+    _log.info("=== 步骤4b：安装最新版 Node.js（系统级，所有用户可用）===")
+    _ensure_remote_tmp(spec)
+
+    # 上传 tarball
+    tar_name = os.path.basename(spec.node_tarball)
+    remote_tar = _upload_file(spec, spec.node_tarball, tar_name)
+
+    # 解压到 /usr/local/lib/nodejs，建立软链接到 /usr/local/bin
+    # 用 tar 提取目录名（node-v24.x-linux-x64），建版本化目录 + bin 软链接
+    install_cmd = (
+        f"mkdir -p /usr/local/lib/nodejs && "
+        f"tar -xJf {remote_tar} -C /usr/local/lib/nodejs && "
+        f"node_dir=$(ls -d /usr/local/lib/nodejs/node-*) && "
+        f"ln -sf $node_dir/bin/node /usr/local/bin/node && "
+        f"ln -sf $node_dir/bin/npm /usr/local/bin/npm && "
+        f"ln -sf $node_dir/bin/npx /usr/local/bin/npx"
+    )
+    r = sshutil.run(
+        spec.ip_address,
+        spec.username,
+        spec.password,
+        install_cmd,
+        sudo=True,
+        timeout=300,
+    )
+    if not r.ok:
+        _log.error("Node.js 安装失败:\n%s", r.stderr[-1500:])
+        raise RuntimeError("Node.js 安装失败")
+
+    # 验证安装结果
+    verify = sshutil.run(
+        spec.ip_address,
+        spec.username,
+        spec.password,
+        "node --version && npm --version && which node npm npx",
+        timeout=30,
+    )
+    if not verify.ok or "v" not in verify.stdout:
+        _log.error("Node.js 验证失败:\n%s", verify.stderr[-500:])
+        raise RuntimeError("Node.js 安装后验证失败")
+    _log.info("Node.js 安装完成:\n%s", verify.stdout.strip())
+
+
 def step5_start_flclash_and_import(spec: VmSpec) -> None:
     """步骤5：在 DISPLAY=:1 启动 FlClash，并导入配置。
 
@@ -328,7 +391,7 @@ fi
 
 
 def provision_all(spec: VmSpec) -> None:
-    """按顺序执行步骤 3 → 4 → 5。
+    """按顺序执行步骤 3 → 4 → 4b → 5。
 
     Args:
         spec: 虚拟机规格。
@@ -336,4 +399,5 @@ def provision_all(spec: VmSpec) -> None:
     step3_install_packages(spec)
     step3_start_vnc(spec)
     step4_install_flclash_chrome(spec)
+    step4b_install_node(spec)
     step5_start_flclash_and_import(spec)

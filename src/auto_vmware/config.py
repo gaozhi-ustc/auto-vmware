@@ -25,6 +25,11 @@ DEFAULT_CHROME_DEB = os.environ.get(
 DEFAULT_CLASH_CONFIG = os.environ.get(
     "AUTO_VMWARE_CLASH_CONFIG", "/DATA/downloads/gaozhi_lagos.yaml"
 )
+# Node.js 预编译包（官方 linux-x64 tar.xz）。VM 内网络可能受限（FlClash 代理
+# 不稳定），故不依赖 VM 内在线安装，改为宿主机下载 + SCP 上传 + 解压到 /usr/local。
+DEFAULT_NODE_TARBALL = os.environ.get(
+    "AUTO_VMWARE_NODE_TARBALL", "/DATA/downloads/node-v24.18.0-linux-x64.tar.xz"
+)
 
 # ---- NAT 网络常量（AGENTS.md §5）-------------------------------------------
 NAT_GATEWAY = "192.168.167.2"
@@ -203,6 +208,7 @@ class VmSpec:
     flclash_deb: str = DEFAULT_FLCLASH_DEB
     chrome_deb: str = DEFAULT_CHROME_DEB
     clash_config: str = DEFAULT_CLASH_CONFIG
+    node_tarball: str = DEFAULT_NODE_TARBALL
 
     cpu: int = DEFAULT_CPU
     mem_mb: int = DEFAULT_MEM_MB
