@@ -25,6 +25,22 @@ _log = get_logger("provision")
 REMOTE_TMP = "/tmp/auto-vmware"
 
 
+def _vnc_password(user_password: str) -> str:
+    """把用户密码转为 VNC 密码（限长 8 字符）。
+
+    VNC 协议密码上限 8 字符：超出截断，不足则原样使用。
+    **不能**对不足 8 位的密码补零凑长 —— vncpasswd 自行处理短密码，
+    补零会改变密码内容，导致客户端用原密码登录失败。
+
+    Args:
+        user_password: VM 用户密码（与登录密码相同）。
+
+    Returns:
+        长度 ≤ 8 的 VNC 密码字符串。
+    """
+    return user_password[:8]
+
+
 def _ensure_remote_tmp(spec: VmSpec) -> None:
     """确保远程临时目录存在且当前用户可写。
 
@@ -139,13 +155,11 @@ def step3_start_vnc(spec: VmSpec) -> None:
         spec: 虚拟机规格。
     """
     _log.info("=== 步骤3：启动 VNC :1 ===")
-    pw = spec.password
-    # 非交互设置 VNC 密码（限长 8 字符，超出截断）
-    vnc_pw = pw[:8] if len(pw) >= 8 else (pw + "0" * (8 - len(pw)))
-    # 用 printf 喂两次密码给 vncpasswd
+    vnc_pw = _vnc_password(spec.password)
+    # 用 printf 喂两次密码给 vncpasswd，第三个 'n' 拒绝 view-only 密码
     set_vnc_pw = (
         f"mkdir -p ~/.vnc && "
-        f"printf '%s\\n%s\\nn\\n' {sshutil.shell_quote(vnc_pw)} {sshutil.shell_quote(vnc_pw)} "
+        f"printf '%s\\n%s\\n%s\\n' {sshutil.shell_quote(vnc_pw)} {sshutil.shell_quote(vnc_pw)} 'n' "
         f"| vncpasswd ~/.vnc/passwd && chmod 600 ~/.vnc/passwd"
     )
     sshutil.run(spec.ip_address, spec.username, spec.password, set_vnc_pw, timeout=60)
