@@ -247,7 +247,7 @@ def step5_start_flclash_and_import(spec: VmSpec) -> None:
     """步骤5：在 DISPLAY=:1 启动 FlClash，并导入配置。
 
     实现：
-    1. 上传 gaozhi_new.yaml 到远程。
+    1. 上传 gaozhi_lagos.yaml 到远程。
     2. 确保 VNC :1 在跑（依赖步骤3）。
     3. 用 FlClash 的 CLI/配置目录导入；FlClash 桌面版主要消费
        ~/.config/com.follow.clash 或通过首次启动读取。
@@ -259,7 +259,7 @@ def step5_start_flclash_and_import(spec: VmSpec) -> None:
     _log.info("=== 步骤5：启动 FlClash 并导入配置 ===")
     _ensure_remote_tmp(spec)
 
-    cfg_remote = _upload_file(spec, spec.clash_config, "gaozhi_new.yaml")
+    cfg_remote = _upload_file(spec, spec.clash_config, "gaozhi_lagos.yaml")
 
     # FlClash (com.follow.clash) 配置目录；不同版本可能不同，做几个候选
     setup_cfg = f"""
@@ -267,7 +267,7 @@ set -e
 mkdir -p ~/.config/com.follow.clash ~/.config/FlClash 2>/dev/null || true
 cp -f {cfg_remote} ~/.config/com.follow.clash/config.yaml 2>/dev/null || true
 cp -f {cfg_remote} ~/.config/FlClash/config.yaml 2>/dev/null || true
-cp -f {cfg_remote} ~/gaozhi_new.yaml
+cp -f {cfg_remote} ~/gaozhi_lagos.yaml
 echo '配置已就位'
 """
     sshutil.run(spec.ip_address, spec.username, spec.password, setup_cfg, timeout=60)
