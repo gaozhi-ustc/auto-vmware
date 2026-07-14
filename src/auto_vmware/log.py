@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Optional
 
 _CONFIGURED = False
 
@@ -31,7 +30,7 @@ def setup_logger(verbose: bool = False) -> logging.Logger:
     return logger
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """获取子 logger。"""
     base = logging.getLogger("auto_vmware")
     return base.getChild(name) if name else base

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from auto_vmware.config import VmSpec
 
 
-def render_preseed(spec: "VmSpec") -> str:
+def render_preseed(spec: VmSpec) -> str:
     """渲染 ubiquity preseed 应答文件。
 
     覆盖：语言、键盘、时区、网络（DHCP 由 ubiquity 阶段处理，静态 IP 留给
@@ -29,12 +29,7 @@ def render_preseed(spec: "VmSpec") -> str:
     Returns:
         preseed 文件全文。
     """
-    import crypt
-
     s = spec
-    # root 与普通用户密码 hash
-    pw_hash = crypt.crypt(s.password, crypt.mksalt(crypt.METHOD_SHA512))
-    # preseed 里需要的是完整 hash，格式 ${algo}$salt$hash
     return f"""### === auto-vmware ubiquity preseed ===
 ### 内容由 auto_vmware.preseed.render_preseed 生成，勿手改。
 

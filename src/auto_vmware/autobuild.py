@@ -93,7 +93,7 @@ def _patched_grub_cfg(original: str, mode: str = "autoinstall") -> str:
 
 
 def build_autoinst_iso_full_unpack(
-    spec: "VmSpec",
+    spec: VmSpec,
     *,
     mode: str = "autoinstall",
     user_data: str = "",
@@ -147,7 +147,9 @@ def build_autoinst_iso_full_unpack(
                 name = child.file_identifier().decode("utf-8", "replace")
                 if name in (".", ".."):
                     continue
-                child_iso_path = (iso_dir.rstrip("/") + "/" + name) if iso_dir != "/" else "/" + name
+                child_iso_path = (
+                    (iso_dir.rstrip("/") + "/" + name) if iso_dir != "/" else "/" + name
+                )
                 if child.is_dir():
                     _extract(child_iso_path)
                 elif child.is_file():
@@ -172,9 +174,11 @@ def build_autoinst_iso_full_unpack(
         # 校验关键文件。squashfs 文件名因 ISO 而异：
         # desktop = filesystem.squashfs，server = ubuntu-server-minimal.squashfs
         casper_dir = os.path.join(work, "casper")
-        squashfs_files = [
-            f for f in os.listdir(casper_dir) if f.endswith(".squashfs")
-        ] if os.path.isdir(casper_dir) else []
+        squashfs_files = (
+            [f for f in os.listdir(casper_dir) if f.endswith(".squashfs")]
+            if os.path.isdir(casper_dir)
+            else []
+        )
         must_exist = [
             os.path.join(casper_dir, "vmlinuz"),
             os.path.join(casper_dir, "initrd"),
@@ -235,14 +239,20 @@ def build_autoinst_iso_full_unpack(
         _log.info("重新打包 ISO（mkisofs）...")
         cmd = [
             MKISOFS,
-            "-output", iso_out,
-            "-volid", CIDATA_LABEL,
-            "-joliet", "-rock",
+            "-output",
+            iso_out,
+            "-volid",
+            CIDATA_LABEL,
+            "-joliet",
+            "-rock",
             "-full-iso9660-filenames",
-            "-b", "boot/grub/i386_pc/eltorito.img",
-            "-c", "boot.catalog",
+            "-b",
+            "boot/grub/i386_pc/eltorito.img",
+            "-c",
+            "boot.catalog",
             "-no-emul-boot",
-            "-boot-load-size", "4",
+            "-boot-load-size",
+            "4",
             "-boot-info-table",
             ".",
         ]

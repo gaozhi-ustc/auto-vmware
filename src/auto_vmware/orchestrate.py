@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import subprocess
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from auto_vmware.log import get_logger
 from auto_vmware import sshutil
+from auto_vmware.log import get_logger
 
 if TYPE_CHECKING:
     from auto_vmware.config import VmSpec
@@ -123,7 +123,7 @@ def send_keys_grub_enter(vmx_path: str, delay_seconds: int = 25) -> None:
 
 
 def wait_for_install_and_reboot(
-    spec: "VmSpec",
+    spec: VmSpec,
     vmx_path: str,
     total_timeout: int = 2400,
     ssh_window: int = 600,
@@ -183,7 +183,7 @@ def wait_for_install_and_reboot(
 
 
 def reboot_guest_and_wait(
-    spec: "VmSpec", vmx_path: str, wait_ssh: bool = True, ssh_window: int = 300
+    spec: VmSpec, vmx_path: str, wait_ssh: bool = True, ssh_window: int = 300
 ) -> None:
     """通过 VMware Tools 触发客户机重启，并等待 SSH 恢复。
 
@@ -201,9 +201,7 @@ def reboot_guest_and_wait(
     if r.returncode != 0:
         _log.warning("vmrun reset 失败，尝试 SSH 内 reboot")
         try:
-            sshutil.run(
-                spec.ip_address, spec.username, spec.password, "sudo reboot", timeout=30
-            )
+            sshutil.run(spec.ip_address, spec.username, spec.password, "sudo reboot", timeout=30)
         except Exception as e:  # noqa: BLE001
             _log.debug("SSH reboot 抛出（连接断开属正常）: %s", e)
 
@@ -219,7 +217,7 @@ def reboot_guest_and_wait(
         _log.info("重启后 SSH 恢复")
 
 
-def validate_host_env(spec: "VmSpec") -> None:
+def validate_host_env(spec: VmSpec) -> None:
     """校验宿主机环境：必备工具与文件是否就绪。
 
     Args:
@@ -248,7 +246,7 @@ def validate_host_env(spec: "VmSpec") -> None:
     _log.info("宿主机环境校验通过")
 
 
-def confirm_or_abort(spec: "VmSpec") -> None:
+def confirm_or_abort(spec: VmSpec) -> None:
     """向用户展示部署摘要并请求确认。--yes 时跳过。"""
     if spec.yes:
         return

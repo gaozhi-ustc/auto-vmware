@@ -34,7 +34,7 @@ _log = get_logger("cidata")
 MKISOFS = "/usr/lib/vmware/bin/mkisofs"
 
 
-def render_user_data(spec: "VmSpec") -> str:
+def render_user_data(spec: VmSpec) -> str:
     """渲染 autoinstall user-data 文本。
 
     包含 `#cloud-config` 头与 `autoinstall:` 块。subiquity 检测到该块后会
@@ -117,7 +117,7 @@ autoinstall:
 """
 
 
-def render_user_data_v2(spec: "VmSpec") -> str:
+def render_user_data_v2(spec: VmSpec) -> str:
     """渲染更稳健的 autoinstall user-data（推荐使用此版本）。
 
     与 v1 相比：直接在 identity 用 hashed_passwd，避免 chpasswd 时机问题；
@@ -183,12 +183,12 @@ autoinstall:
 """  # noqa: E501
 
 
-def render_meta_data(spec: "VmSpec") -> str:
+def render_meta_data(spec: VmSpec) -> str:
     """渲染 meta-data。"""
     return f"instance-id: {spec.name}-001\nlocal-hostname: {spec.hostname}\n"
 
 
-def build_cidata_iso(spec: "VmSpec", user_data_text: str, meta_data_text: str) -> str:
+def build_cidata_iso(spec: VmSpec, user_data_text: str, meta_data_text: str) -> str:
     """将 user-data / meta-data 打包为 NoCloud 种子 ISO。
 
     使用宿主机自带的 mkisofs，卷标设为 CIDATA（NoCloud 数据源约定）。
@@ -203,9 +203,7 @@ def build_cidata_iso(spec: "VmSpec", user_data_text: str, meta_data_text: str) -
     """
     out = spec.cidata_iso_path
     if not os.path.exists(MKISOFS):
-        raise FileNotFoundError(
-            f"未找到 mkisofs：{MKISOFS}。请确认 VMware Workstation 已安装。"
-        )
+        raise FileNotFoundError(f"未找到 mkisofs：{MKISOFS}。请确认 VMware Workstation 已安装。")
     # 确保输出目录存在，否则 mkisofs 会因无法创建输出文件而报
     # "Unable to open disc image file"
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -220,8 +218,10 @@ def build_cidata_iso(spec: "VmSpec", user_data_text: str, meta_data_text: str) -
 
         cmd = [
             MKISOFS,
-            "-output", out,
-            "-volid", "CIDATA",
+            "-output",
+            out,
+            "-volid",
+            "CIDATA",
             "-joliet",
             "-rock",
             ud,

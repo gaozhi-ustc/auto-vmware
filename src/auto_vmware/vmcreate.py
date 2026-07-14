@@ -21,7 +21,7 @@ _log = get_logger("vmcreate")
 VDISKMANAGER = "/usr/bin/vmware-vdiskmanager"
 
 
-def create_vmdk(spec: "VmSpec") -> str:
+def create_vmdk(spec: VmSpec) -> str:
     """调用 vmware-vdiskmanager 创建空白 vmdk 磁盘。
 
     Args:
@@ -40,9 +40,12 @@ def create_vmdk(spec: "VmSpec") -> str:
     cmd = [
         VDISKMANAGER,
         "-c",
-        "-s", f"{size_mb}MB",
-        "-a", "lsilogic",
-        "-t", str(FIXED_DISK_TYPE),  # 0 = 单一可增长虚拟磁盘（monolithic）
+        "-s",
+        f"{size_mb}MB",
+        "-a",
+        "lsilogic",
+        "-t",
+        str(FIXED_DISK_TYPE),  # 0 = 单一可增长虚拟磁盘（monolithic）
         out,
     ]
     _log.info("创建磁盘: %s (%sGB)", out, spec.disk_gb)
@@ -53,7 +56,7 @@ def create_vmdk(spec: "VmSpec") -> str:
     return out
 
 
-def render_vmx(spec: "VmSpec") -> str:
+def render_vmx(spec: VmSpec) -> str:
     """渲染 .vmx 配置文件文本。
 
     结构对齐本机已验证可用的 ubuntu-zero03.vmx，确保 VMware Workstation 能
@@ -140,7 +143,7 @@ msg.autoAnswer = "TRUE"
 """
 
 
-def write_vmx(spec: "VmSpec", vmx_text: str) -> str:
+def write_vmx(spec: VmSpec, vmx_text: str) -> str:
     """写入 .vmx 文件。
 
     Args:
@@ -160,7 +163,7 @@ def write_vmx(spec: "VmSpec", vmx_text: str) -> str:
     return out
 
 
-def create_vm(spec: "VmSpec", cidata_iso: str) -> str:
+def create_vm(spec: VmSpec, cidata_iso: str) -> str:
     """完整创建一台虚拟机（磁盘 + 配置）。
 
     Args:

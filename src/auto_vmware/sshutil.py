@@ -10,7 +10,6 @@ import os
 import socket
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 from auto_vmware.log import get_logger
 
@@ -115,7 +114,6 @@ def run(
     Raises:
         SSHError: 连接失败或命令超时。
     """
-    import paramiko
 
     if sudo:
         # -S: 从 stdin 读密码；-p '' 不打印提示符
@@ -137,7 +135,11 @@ def run(
                     out += chan.recv(65536)
                 if chan.recv_stderr_ready():
                     err += chan.recv_stderr(65536)
-                if chan.exit_status_ready() and not chan.recv_ready() and not chan.recv_stderr_ready():
+                if (
+                    chan.exit_status_ready()
+                    and not chan.recv_ready()
+                    and not chan.recv_stderr_ready()
+                ):
                     break
                 time.sleep(0.05)
             rc = chan.recv_exit_status()
@@ -162,9 +164,9 @@ def run_many(
     host: str,
     username: str,
     password: str,
-    commands: List[Tuple[str, dict]],
+    commands: list[tuple[str, dict]],
     port: int = SSH_PORT,
-) -> List[SSHResult]:
+) -> list[SSHResult]:
     """顺序执行多条命令。每条形如 (command, opts)，opts 支持 sudo/timeout。
 
     Args:
@@ -215,7 +217,6 @@ def scp_upload(
         port: SSH 端口。
         timeout: 超时（秒）。
     """
-    import paramiko
 
     if not os.path.isfile(local_path):
         raise SSHError(f"本地文件不存在: {local_path}")
@@ -257,9 +258,7 @@ def shell_quote(s: str) -> str:
     return "'" + s.replace("'", "'\"'\"'") + "'"
 
 
-def wait_for_port(
-    host: str, port: int, timeout_total: int = 600, interval: int = 5
-) -> bool:
+def wait_for_port(host: str, port: int, timeout_total: int = 600, interval: int = 5) -> bool:
     """等待 TCP 端口可达。
 
     Returns:

@@ -10,9 +10,7 @@
 
 from __future__ import annotations
 
-import os
-import time
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from auto_vmware import orchestrate, sshutil
 from auto_vmware.config import POSTINSTALL_APT_PKGS
@@ -27,7 +25,7 @@ _log = get_logger("provision")
 REMOTE_TMP = "/tmp/auto-vmware"
 
 
-def _ensure_remote_tmp(spec: "VmSpec") -> None:
+def _ensure_remote_tmp(spec: VmSpec) -> None:
     """确保远程临时目录存在。"""
     sshutil.run(
         spec.ip_address,
@@ -38,7 +36,7 @@ def _ensure_remote_tmp(spec: "VmSpec") -> None:
     )
 
 
-def apt_update(spec: "VmSpec") -> sshutil.SSHResult:
+def apt_update(spec: VmSpec) -> sshutil.SSHResult:
     """apt update（容忍失败，因为镜像源未配置时可能失败）。"""
     _log.info("[apt] update")
     return sshutil.run(
@@ -51,7 +49,7 @@ def apt_update(spec: "VmSpec") -> sshutil.SSHResult:
     )
 
 
-def step3_install_packages(spec: "VmSpec") -> None:
+def step3_install_packages(spec: VmSpec) -> None:
     """步骤3：安装桌面/VNC/lightdm 包，切换 lightdm，准备重启。
 
     严格按 AGENTS.md 步骤3：
@@ -73,9 +71,7 @@ def step3_install_packages(spec: "VmSpec") -> None:
         "echo 'lightdm lightdm/daemon_name select lightdm' | "
         "debconf-set-selections"
     )
-    sshutil.run(
-        spec.ip_address, spec.username, spec.password, preset_dm, sudo=True, timeout=60
-    )
+    sshutil.run(spec.ip_address, spec.username, spec.password, preset_dm, sudo=True, timeout=60)
 
     apt_update(spec)
 
@@ -124,12 +120,10 @@ def step3_install_packages(spec: "VmSpec") -> None:
 
     # 重启生效
     _log.info("重启以应用 lightdm（步骤3 要求）")
-    orchestrate.reboot_guest_and_wait(
-        spec, spec.vmx_path, wait_ssh=True, ssh_window=360
-    )
+    orchestrate.reboot_guest_and_wait(spec, spec.vmx_path, wait_ssh=True, ssh_window=360)
 
 
-def step3_start_vnc(spec: "VmSpec") -> None:
+def step3_start_vnc(spec: VmSpec) -> None:
     """步骤3（重启后）：启动 vncserver :1，密码同用户登录密码。
 
     实现：
@@ -178,16 +172,14 @@ chmod +x ~/.vnc/xstartup
     )
 
 
-def _upload_file(spec: "VmSpec", local: str, remote_name: str) -> str:
+def _upload_file(spec: VmSpec, local: str, remote_name: str) -> str:
     """上传文件到 REMOTE_TMP，返回远程完整路径。"""
     remote_path = f"{REMOTE_TMP}/{remote_name}"
-    sshutil.scp_upload(
-        spec.ip_address, spec.username, spec.password, local, remote_path
-    )
+    sshutil.scp_upload(spec.ip_address, spec.username, spec.password, local, remote_path)
     return remote_path
 
 
-def _install_deb_with_fix(spec: "VmSpec", remote_deb: str) -> None:
+def _install_deb_with_fix(spec: VmSpec, remote_deb: str) -> None:
     """安装单个 deb，失败时用 apt --fix-broken 修复后重试。
 
     Args:
@@ -230,7 +222,7 @@ def _install_deb_with_fix(spec: "VmSpec", remote_deb: str) -> None:
         raise RuntimeError(f"安装 deb 失败: {remote_deb}")
 
 
-def step4_install_flclash_chrome(spec: "VmSpec") -> None:
+def step4_install_flclash_chrome(spec: VmSpec) -> None:
     """步骤4：安装 FlClash 与 Chrome deb，--fix-broken 兜底。
 
     Args:
@@ -251,7 +243,7 @@ def step4_install_flclash_chrome(spec: "VmSpec") -> None:
     _log.info("FlClash / Chrome 安装完成")
 
 
-def step5_start_flclash_and_import(spec: "VmSpec") -> None:
+def step5_start_flclash_and_import(spec: VmSpec) -> None:
     """步骤5：在 DISPLAY=:1 启动 FlClash，并导入配置。
 
     实现：
@@ -314,7 +306,7 @@ fi
     _log.info("配置导入完成（已写入 FlClash 配置目录与用户主目录）")
 
 
-def provision_all(spec: "VmSpec") -> None:
+def provision_all(spec: VmSpec) -> None:
     """按顺序执行步骤 3 → 4 → 5。
 
     Args:

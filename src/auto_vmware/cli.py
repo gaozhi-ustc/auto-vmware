@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from typing import Optional
 
 from auto_vmware import cidata, orchestrate, provision, vmcreate
 from auto_vmware.config import (
@@ -167,7 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """主入口。"""
     parser = build_parser()
     args = parser.parse_args(argv)
