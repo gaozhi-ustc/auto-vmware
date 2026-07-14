@@ -26,12 +26,16 @@ REMOTE_TMP = "/tmp/auto-vmware"
 
 
 def _ensure_remote_tmp(spec: VmSpec) -> None:
-    """确保远程临时目录存在。"""
+    """确保远程临时目录存在且当前用户可写。
+
+    目录用 sudo 创建（/tmp 可能受 sticky bit 限制），随后 chown 给登录用户，
+    否则 sftp 以普通用户身份上传文件时会 Permission denied。
+    """
     sshutil.run(
         spec.ip_address,
         spec.username,
         spec.password,
-        f"mkdir -p {REMOTE_TMP}",
+        f"mkdir -p {REMOTE_TMP} && chown {spec.username}:{spec.username} {REMOTE_TMP}",
         sudo=True,
     )
 
