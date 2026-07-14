@@ -22,7 +22,9 @@ DEFAULT_CHROME_DEB = os.environ.get(
     "AUTO_VMWARE_CHROME_DEB",
     "/DATA/downloads/google-chrome-stable_current_amd64.deb",
 )
-DEFAULT_CLASH_CONFIG = os.environ.get("AUTO_VMWARE_CLASH_CONFIG", "/DATA/downloads/gaozhi_lagos.yaml")
+DEFAULT_CLASH_CONFIG = os.environ.get(
+    "AUTO_VMWARE_CLASH_CONFIG", "/DATA/downloads/gaozhi_lagos.yaml"
+)
 
 # ---- NAT 网络常量（AGENTS.md §5）-------------------------------------------
 NAT_GATEWAY = "192.168.167.2"

@@ -165,13 +165,16 @@ chmod +x ~/.vnc/xstartup
     sshutil.run(spec.ip_address, spec.username, spec.password, xstartup, timeout=60)
 
     # 先杀掉已有 VNC，再启动 :1
-    _log.info("启动 vncserver :1 -localhost no")
+    # -SecurityTypes VncAuth：只用传统 VNC 密码认证，去掉默认的 TLSVnc。
+    # macOS 自带"屏幕共享"不支持 TLS 认证协商，含 TLSVnc 时会报"不兼容"；
+    # 纯 VncAuth 兼容 macOS / RealVNC / TigerVNC 等所有标准客户端。
+    _log.info("启动 vncserver :1 -localhost no -SecurityTypes VncAuth")
     sshutil.run(
         spec.ip_address,
         spec.username,
         spec.password,
         "vncserver -kill :1 2>/dev/null || true ; sleep 1 ; "
-        "vncserver :1 -localhost no -geometry 1920x1080",
+        "vncserver :1 -localhost no -geometry 1920x1080 -SecurityTypes VncAuth",
         timeout=120,
     )
 
@@ -283,7 +286,7 @@ echo '配置已就位'
         spec.username,
         spec.password,
         "vncserver -list 2>/dev/null | grep -q ':1' || "
-        "(vncserver :1 -localhost no -geometry 1920x1080)",
+        "(vncserver :1 -localhost no -geometry 1920x1080 -SecurityTypes VncAuth)",
         timeout=120,
     )
 
