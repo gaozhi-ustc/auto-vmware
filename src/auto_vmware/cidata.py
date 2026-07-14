@@ -53,7 +53,7 @@ def render_user_data(spec: VmSpec) -> str:
     return f"""#cloud-config
 autoinstall:
   version: 1
-  locale: zh_CN.UTF-8
+  locale: en_US.UTF-8
   keyboard:
     layout: us
   identity:
@@ -138,7 +138,7 @@ def render_user_data_v2(spec: VmSpec) -> str:
     return f"""#cloud-config
 autoinstall:
   version: 1
-  locale: zh_CN.UTF-8
+  locale: en_US.UTF-8
   keyboard:
     layout: us
   timezone: {s.timezone}
