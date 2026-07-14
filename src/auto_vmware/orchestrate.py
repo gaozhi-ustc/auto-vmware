@@ -132,54 +132,72 @@ def wait_for_install_and_reboot(
 ) -> None:
     """等待 autoinstall 完成、VM 重启、SSH 可达。
 
-    autoinstall 完成后会自动重启。重启后系统首启，cloud-init 配置用户/网络
-    生效，SSH 变可达。本函数等待这一完整链路。
+    autoinstall 完成后的行为因 subiquity 版本而异：
+    - **reboot**（Ubuntu 22.04 server 默认）：VM 一直运行，不会关机，直接重启进新系统。
+    - **poweroff**（某些配置）：VM 关机，需主动启动进入首启。
+
+    因此不能只靠"VM 关机"判断完成。本函数用双信号检测：
+    1. 若 VM 从运行变为关机（poweroff 路径），主动启动它进入首启。
+    2. 同时持续探测 SSH —— 一旦 SSH 可达，说明系统已装好并首启完成（reboot 路径
+       下 VM 从未关机，靠此信号判定）。
+
+    SSH 可达即视为安装完成，直接返回，不再额外等待。
 
     Args:
         spec: 虚拟机规格。
         vmx_path: .vmx 路径。
-        total_timeout: 安装阶段总超时（秒）。
-        ssh_window: 安装完成后等待 SSH 的窗口（秒）。
+        total_timeout: 安装阶段总超时（秒），含等待 SSH 的时间。
+        ssh_window: 预留值，实际 SSH 探测复用 total_timeout（保持向后兼容）。
         interval: 轮询间隔。
         gui: 是否 GUI 模式。
 
     Raises:
-        RuntimeError: 安装阶段超时未完成。
-        sshutil.SSHError: SSH 等待超时。
+        RuntimeError: 安装阶段超时未完成（SSH 始终不可达）。
     """
-    start_deadline = time.time() + total_timeout
-    _log.info("等待 autoinstall 完成（最长 %ds）...", total_timeout)
+    deadline = time.time() + total_timeout
+    _log.info("等待 autoinstall 完成 + SSH 可达（最长 %ds）...", total_timeout)
 
-    # 安装过程中 VM 会运行；安装完成后会自动重启。我们观察 VM 状态变化，
-    # 并辅以 SSH 探测判断首启完成。
+    import paramiko
+
     seen_running = False
-    while time.time() < start_deadline:
+    ssh_attempt = 0
+    while time.time() < deadline:
+        # 信号 1：检测 VM 是否关机过（poweroff 路径）→ 主动启动
         running = is_running(vmx_path)
         if running:
             seen_running = True
-            _log.debug("VM 运行中... 安装进行")
-        else:
-            if seen_running:
-                _log.info("检测到 VM 已关机（可能安装完成），重新启动以进入首启")
-                # 安装后 VM 可能自动重启，也可能停在关机状态（视 subiquity 版本）
-                # 这里主动启动，确保进入系统
-                time.sleep(3)
-                start(vmx_path, gui=gui)
-                break
-            else:
-                _log.debug("VM 未运行，等待 autoinstall 启动")
+        elif seen_running:
+            _log.info("检测到 VM 已关机（autoinstall 完成的 poweroff 路径），重新启动")
+            time.sleep(3)
+            start(vmx_path, gui=gui)
+
+        # 信号 2：探测 SSH 可达（reboot 路径下 VM 从未关机，靠此判定完成）
+        if running:
+            ssh_attempt += 1
+            try:
+                client = paramiko.SSHClient()
+                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                client.connect(
+                    hostname=spec.ip_address,
+                    username=spec.username,
+                    password=spec.password,
+                    timeout=10,
+                    banner_timeout=10,
+                    auth_timeout=10,
+                    allow_agent=False,
+                    look_for_keys=False,
+                )
+                client.close()
+                _log.info("SSH 可达（第 %d 次探测），autoinstall 完成且首启就绪", ssh_attempt)
+                return
+            except Exception:  # noqa: BLE001
+                _log.debug("第 %d 次 SSH 探测未就绪（安装中或重启中）", ssh_attempt)
+
         time.sleep(interval)
 
-    # 探测 SSH
-    _log.info("等待 SSH 可达: %s", spec.ip_address)
-    sshutil.wait_for_ssh(
-        host=spec.ip_address,
-        username=spec.username,
-        password=spec.password,
-        timeout_total=ssh_window,
-        interval=interval,
+    raise RuntimeError(
+        f"等待 autoinstall 完成超时（{total_timeout}s）：SSH 始终不可达 {spec.ip_address}"
     )
-    _log.info("SSH 已可达，首启完成")
 
 
 def reboot_guest_and_wait(
