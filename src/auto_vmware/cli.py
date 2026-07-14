@@ -58,7 +58,11 @@ def _add_common(p: argparse.ArgumentParser) -> None:
         help="Node.js 预编译包 tar.xz 路径（官方 linux-x64）",
     )
     p.add_argument("--yes", action="store_true", help="跳过确认提示")
-    p.add_argument("--gui", action="store_true", help="以 GUI 模式启动 VM（默认后台）")
+    p.add_argument(
+        "--nogui",
+        action="store_true",
+        help="以无头模式启动 VM（默认 GUI 模式，可看到安装界面）",
+    )
     p.add_argument("--verbose", action="store_true", help="DEBUG 日志")
 
 
@@ -102,9 +106,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     vmx_path = vmcreate.create_vm(spec, cidata_iso)
 
     # 3. 启动 + 等待 autoinstall 完成 + 等待 SSH
-    orchestrate.start(vmx_path, gui=args.gui)
+    orchestrate.start(vmx_path, gui=not args.nogui)
     orchestrate.wait_for_install_and_reboot(
-        spec, vmx_path, total_timeout=2400, ssh_window=600, gui=args.gui
+        spec, vmx_path, total_timeout=2400, ssh_window=600, gui=not args.nogui
     )
 
     # 4/5/6. 装机后配置
