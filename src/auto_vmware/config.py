@@ -6,8 +6,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass
 
 # ---- 默认路径常量（可被环境变量覆盖）---------------------------------------
 DEFAULT_ISO_PATH = os.environ.get(
@@ -23,9 +22,7 @@ DEFAULT_CHROME_DEB = os.environ.get(
     "AUTO_VMWARE_CHROME_DEB",
     "/DATA/downloads/google-chrome-stable_current_amd64.deb",
 )
-DEFAULT_CLASH_CONFIG = os.environ.get(
-    "AUTO_VMWARE_CLASH_CONFIG", "/DATA/downloads/gaozhi_new.yaml"
-)
+DEFAULT_CLASH_CONFIG = os.environ.get("AUTO_VMWARE_CLASH_CONFIG", "/DATA/downloads/gaozhi_new.yaml")
 
 # ---- NAT 网络常量（AGENTS.md §5）-------------------------------------------
 NAT_GATEWAY = "192.168.167.2"
@@ -50,7 +47,7 @@ DEFAULT_DISK_GB = 100
 FIXED_DISK_TYPE = 0
 
 # ---- 装机后 apt 包列表（AGENTS.md 步骤3）-----------------------------------
-POSTINSTALL_APT_PKGS: List[str] = [
+POSTINSTALL_APT_PKGS: list[str] = [
     "gnome-session",
     "gnome-terminal",
     "ubuntu-desktop",
@@ -86,13 +83,106 @@ def validate_ip_last(ip_last: int) -> int:
     if not isinstance(ip_last, int) or ip_last < 0 or ip_last > 255:
         raise ConfigError(f"IP 尾段必须是 0–255 的整数，收到: {ip_last!r}")
     if ip_last in IP_LAST_FORBIDDEN:
-        raise ConfigError(
-            f"IP 尾段 {ip_last} 不可用（0=网络/1=宿主机/2=网关/255=广播）"
-        )
+        raise ConfigError(f"IP 尾段 {ip_last} 不可用（0=网络/1=宿主机/2=网关/255=广播）")
     if ip_last > IP_LAST_MAX_SAFE:
         # 允许，但运行时由调用方告警
         pass
     return ip_last
+
+
+# IANA 未收录但常见的城市/旧名 → 标准 IANA 时区。subiquity 只认 IANA 名，
+# 像 Beijing/Hangzhou 这类中国城市 IANA 并未收录（中国时区统一用 Asia/Shanghai），
+# 旧殖民名 Bombay/Madras 也不在库中。此处兜底，避免静默回退 UTC。
+TIMEZONE_ALIASES: dict[str, str] = {
+    # 中国城市（IANA 仅收录 Asia/Shanghai、Asia/Urumqi）
+    "Beijing": "Asia/Shanghai",
+    "Guangzhou": "Asia/Shanghai",
+    "Shenzhen": "Asia/Shanghai",
+    "Chengdu": "Asia/Shanghai",
+    "Hangzhou": "Asia/Shanghai",
+    "Nanjing": "Asia/Shanghai",
+    "Wuhan": "Asia/Shanghai",
+    "Xian": "Asia/Shanghai",
+    "Tianjin": "Asia/Shanghai",
+    # 印度旧殖民名 → 现名
+    "Bombay": "Asia/Kolkata",
+    "Madras": "Asia/Kolkata",
+    # 越南胡志明市旧名（IANA 已改用 Asia/Ho_Chi_Minh，Asia/Saigon 仅为兼容别名）
+    "Saigon": "Asia/Ho_Chi_Minh",
+    # 常见英文别名
+    "NYC": "America/New_York",
+    "LA": "America/Los_Angeles",
+    "SF": "America/Los_Angeles",
+    "UK": "Europe/London",
+}
+
+
+def normalize_timezone(tz: str) -> str:
+    """把时区输入规范化为 IANA 时区名。
+
+    subiquity 只认 IANA 时区（如 Africa/Lagos、Asia/Shanghai、Europe/London）。
+    用户可能传裸城市名（Lagos、Beijing）、含空格的城市（New York）、
+    别名（Bombay）或已合规的 IANA 名。本函数按以下顺序解析：
+
+    1. 空格归一化为下划线（``New York`` → ``New_York``，对齐 IANA 命名）。
+    2. 直接全名匹配（已是合法 IANA 名则原样返回）。
+    3. 别名表兜底（``Beijing`` → ``Asia/Shanghai``）。
+    4. 城市名后缀匹配（``Lagos`` → ``Africa/Lagos``）。
+
+    解析失败（无匹配，或多匹配无法唯一确定）时**抛出 ConfigError**，
+    而非静默回退 UTC —— 静默回退会让 subiquity 把 VM 装成错误时区且无报错，
+    违反 AGENTS.md §6「每一步必须有明确失败提示」。
+
+    Args:
+        tz: 用户输入的时区（城市名、别名或 IANA 名）。
+
+    Returns:
+        IANA 时区名（如 Africa/Lagos、Asia/Shanghai）。
+
+    Raises:
+        ConfigError: 无法唯一映射到 IANA 时区时（无匹配或多匹配）。
+    """
+    from zoneinfo import available_timezones
+
+    if not tz or not tz.strip():
+        raise ConfigError("时区不能为空")
+
+    # 1. 空格 → 下划线（IANA 区名用下划线，如 America/New_York）
+    normalized = tz.strip().replace(" ", "_")
+
+    avail = available_timezones()
+
+    # 2. 直接全名匹配（已是合法 IANA 名）
+    if normalized in avail:
+        return normalized
+
+    # 3. 别名表兜底（IANA 未收录的城市/旧名）
+    if normalized in TIMEZONE_ALIASES:
+        resolved = TIMEZONE_ALIASES[normalized]
+        return resolved
+
+    # 4. 城市名后缀匹配：在所有 IANA 名里找以 /城市 结尾的
+    suffix = "/" + normalized
+    matches = sorted(t for t in avail if t.endswith(suffix))
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        # 多匹配无法唯一确定 —— 让用户明确指定，而非猜一个
+        # 例：Buenos_Aires → America/Argentina/Buenos_Aires 与 America/Buenos_Aires
+        raise ConfigError(f"时区 {tz!r} 匹配到多个 IANA 时区，请明确指定其一: {', '.join(matches)}")
+
+    # 5. 大小写不敏感重试（用户可能小写传 Lagos）
+    matches_ci = sorted(t for t in avail if t.lower().endswith(suffix.lower()))
+    if len(matches_ci) == 1:
+        return matches_ci[0]
+    if len(matches_ci) > 1:
+        raise ConfigError(
+            f"时区 {tz!r} 匹配到多个 IANA 时区，请明确指定其一: {', '.join(matches_ci)}"
+        )
+
+    # 6. 无匹配 —— 抛错而非静默回退 UTC
+    hint = "（例如 Asia/Shanghai、America/New_York、Africa/Lagos）"
+    raise ConfigError(f"无法将时区 {tz!r} 映射到 IANA 时区，请使用标准 IANA 名 {hint}")
 
 
 @dataclass
@@ -130,6 +220,9 @@ class VmSpec:
             raise ConfigError("密码不能为空")
         if not self.timezone:
             raise ConfigError("时区不能为空")
+        # 规范化时区为 IANA 格式（如 Lagos → Africa/Lagos）。
+        # subiquity 只认 IANA 时区名，裸城市名会报 "Unrecognized time zone"。
+        self.timezone = normalize_timezone(self.timezone)
 
     # ---- 派生属性 -----------------------------------------------------------
     @property
@@ -146,7 +239,7 @@ class VmSpec:
         return NAT_NETMASK
 
     @property
-    def dns_servers(self) -> List[str]:
+    def dns_servers(self) -> list[str]:
         return list(NAT_DNS)
 
     @property
